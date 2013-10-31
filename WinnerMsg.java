@@ -1,11 +1,12 @@
 class Winner {
-    String winner;
-    String other;
-    int result;
-    public Winner(String winner, String other, int result) {
+    private String winner;
+    private String other;
+    private Boolean pair;
+
+    public Winner(String winner, String other, Boolean pair) {
         this.winner =  winner;
         this.other = other;
-        this.result = result;
+        this.pair = pair;
     }
     public void setWinner (String winner) {
         this.winner = winner;
@@ -19,10 +20,10 @@ class Winner {
     public String getOther () {
         return this.other;
     }
-    public void setResult (int result) {
-        this.result = result;
+    public void setPair (Boolean pair) {
+        this.pair = pair;
     }
-    public int getResult () {
-        return this.result;
+    public Boolean getPair () {
+        return this.pair;
     }
 }

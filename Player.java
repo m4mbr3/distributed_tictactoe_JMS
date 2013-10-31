@@ -6,6 +6,10 @@ class Player {
         this.name = name;
         points = new Integer(0);
     }
+    Player (String name, Integer points) {
+        this.name = name;
+        this.points = points;
+    }
     public void setName(String name) {
         this.name = name;
     }
