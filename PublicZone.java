@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Iterator;
 import java.util.Collections;
+import java.lang.StringBuffer;
 import org.objectweb.joram.client.jms.tcp.TcpConnectionFactory;
 import org.objectweb.joram.client.jms.tcp.TopicTcpConnectionFactory;
 import org.objectweb.joram.client.jms.tcp.QueueTcpConnectionFactory;
@@ -15,14 +16,16 @@ import org.objectweb.joram.client.jms.Topic;
 import javax.jms.JMSException;
 
 class PublicZone {
+    private TopicSession ts;
     private QueueReceiver publication;
     private QueueReceiver winner;
     private TopicPublisher update;
     private TopicPublisher top10;
     private  List<Player> players;
-
+    private  List<Announcement> announcements;
     public PublicZone() throws Exception {
         players = Collections.synchronizedList(new ArrayList<Player>());
+        announcements = Collections.synchronizedList(new ArrayList<Announcement>());
         //At boot the admin object is created
         AdminModule.connect("root", "root", 60);
         javax.jms.ConnectionFactory cf = TcpConnectionFactory.create("localhost", 16010);
@@ -50,7 +53,7 @@ class PublicZone {
         addTopic("Update");
         Topic topic = (Topic) ictx.lookup("Update");
         TopicConnection tc = tcf.createTopicConnection();
-        TopicSession ts = tc.createTopicSession(true, Session.AUTO_ACKNOWLEDGE);
+        ts = tc.createTopicSession(true, Session.AUTO_ACKNOWLEDGE);
         update = ts.createPublisher(topic);
         runUpdateToAllThread();
         //Registration of the topic top10
@@ -65,10 +68,10 @@ class PublicZone {
         Thread t = new Thread(new Runnable(){
             public void run() {
                 //Body of the runTop10Thread
-                Winner msg = null;
+                TextMessage msg = null;
                 while(true) {
                     try {
-                        msg = (Winner)winner.receive(10000);
+                        msg = (TextMessage) winner.receive(10000);
                     }
                     catch (JMSException e) {
                         e.printStackTrace();
@@ -86,11 +89,16 @@ class PublicZone {
                                     toSend[j] = null;
                                 }
                             }
+                            String toSendS = serialize(toSend);
+                            TextMessage toSendTextMessage = ts.createTextMessage();
+                            toSendTextMessage.setText(toSendS);
+                            top10.publish(toSendTextMessage);
                         }
                     }
                     else {
-                        String winner = msg.getWinner();
-                        String other = msg.getOther();
+                        String[] tokens = msg.getText().split(",");
+                        String winner = tokens[0];
+                        String other = tokens[1];
                         synchronized(players) {
                             Player toModify1 = null;
                             Player toModify2 = null;
@@ -139,6 +147,9 @@ class PublicZone {
         Thread t = new Thread(new Runnable(){
             public void run() {
                 //Body of the UpdateToAllThread
+                while(true) {
+
+                }
             }
         });
         t.start();
@@ -146,7 +157,23 @@ class PublicZone {
     public void runPublicationThread() {
         Thread t = new Thread(new Runnable(){
             public void run() {
-                //Body of the PublicationThread
+                while (true) {
+                    TextMessage msg;
+                    try {
+                        msg = (TextMessage) publication.receive(10000);
+                    }
+                    catch (JMSException e) {
+                        e.printStackTrace();
+                    }
+                    if (msg  == null) {
+                        // I do the publication
+
+                        update.publish(announcements);
+                    }
+                    else {
+
+                    }
+                }
             }
         });
         t.start();
@@ -174,6 +201,33 @@ class PublicZone {
         jndiCtx.bind(topicName, topic);
         jndiCtx.close();
         AdminModule.disconnect();
+    }
+    public String serialize (Player[] p) {
+        StringBuffer buf =  new StringBuffer();
+        boolean first = true;
+        for (Player el : p) {
+            if (first) {
+                buf.append(el.getName()+","+el.getPoints());
+                first = false;
+            }
+            else {
+                buf.append(";"+el.getName()+","+el.getPoints());
+            }
+        }
+        return buf.toString();
+    }
+    public String serialize (List<Announcement> a) {
+        StringBuffer buf = new StringBuffer();
+        boolean first = true;
+        for (Announcement el : a) {
+            if (first) {
+                buf.append(el.getOwner()+","+el.getNameChannel());
+            }
+            else {
+                buf.append(";"+el.getOwner()+","+el.getNameChannel());
+            }
+        }
+        return buf.toString();
     }
 
 }
