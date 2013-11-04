@@ -147,6 +147,7 @@ class PublicZone {
                             else {
                                 players.add(toModify2);
                             }
+                            Collections.sort(players, new CustomComparator());
                         }
                     }
                 }
@@ -157,9 +158,24 @@ class PublicZone {
     public void runUpdateToAllThread() {
         Thread t = new Thread(new Runnable(){
             public void run() {
-                //Body of the UpdateToAllThread
                 while(true) {
-
+                    synchronized (announcements) {
+                        String toString = serialize(announcements);
+                        try {
+                            TextMessage msg = ts.createTextMessage();
+                            msg.setText(toString);
+                            update.publish(msg);
+                        }
+                        catch(JMSException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    try {
+                        Thread.sleep(10000);
+                    }
+                    catch (Exception e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         });
@@ -171,24 +187,12 @@ class PublicZone {
                 while (true) {
                     TextMessage msg = null;
                     try {
-                        msg = (TextMessage) publication.receive(10000);
+                        msg = (TextMessage) publication.receive();
                     }
                     catch (JMSException e) {
                         e.printStackTrace();
                     }
-                    if (msg  == null) {
-                        // I do the publication
-                        String toString = serialize(announcements);
-                        try {
-                            msg = ts.createTextMessage();
-                            msg.setText(toString);
-                            update.publish(msg);
-                        }
-                        catch (JMSException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    else {
+                    synchronized (announcements) {
                         String[] tokens= null;
                         try{
                             tokens = msg.getText().split(",");
@@ -247,41 +251,48 @@ class PublicZone {
         AdminModule.disconnect();
     }
     public String serialize (Player[] p) {
-        StringBuffer buf =  new StringBuffer();
-        boolean first = true;
-        for (Player el : p) {
-            if (first) {
-                buf.append(el.getName()+","+el.getPoints());
-                first = false;
+        synchronized(p) {
+            StringBuffer buf =  new StringBuffer();
+            boolean first = true;
+            for (Player el : p) {
+                if (first) {
+                    buf.append(el.getName()+","+el.getPoints());
+                    first = false;
+                }
+                else {
+                    buf.append(";"+el.getName()+","+el.getPoints());
+                }
             }
-            else {
-                buf.append(";"+el.getName()+","+el.getPoints());
-            }
+            return buf.toString();
         }
-        return buf.toString();
     }
     public String serialize (List<Announcement> a) {
-        StringBuffer buf = new StringBuffer();
-        boolean first = true;
-        for (Announcement el : a) {
-            if (el != null) {
-                if (first) {
-                    buf.append(el.getOwner()+","+el.getNameChannel());
+        synchronized(a) {
+            StringBuffer buf = new StringBuffer();
+            boolean first = true;
+            for (Announcement el : a) {
+                if (el != null) {
+                    if (first) {
+                        buf.append(el.getOwner()+","+el.getNameChannel());
+                    }
+                    else {
+                        buf.append(";"+el.getOwner()+","+el.getNameChannel());
+                    }
                 }
                 else {
-                    buf.append(";"+el.getOwner()+","+el.getNameChannel());
+                    if (first) {
+                        buf.append("NULL,NULL");
+                    }
+                    else {
+                        buf.append(";NULL,NULL");
+                    }
                 }
             }
-            else {
-                if (first) {
-                    buf.append("NULL,NULL");
-                }
-                else {
-                    buf.append(";NULL,NULL");
-                }
+            if (buf.length() == 0) {
+                buf.append("NULL,NULL");
             }
+            return buf.toString();
         }
-        return buf.toString();
     }
 
 }
