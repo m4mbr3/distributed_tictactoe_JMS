@@ -90,13 +90,24 @@ class PublicZone {
                                 }
                             }
                             String toSendS = serialize(toSend);
-                            TextMessage toSendTextMessage = ts.createTextMessage();
-                            toSendTextMessage.setText(toSendS);
-                            top10.publish(toSendTextMessage);
+                            try {
+                                TextMessage toSendTextMessage = ts.createTextMessage();
+                                toSendTextMessage.setText(toSendS);
+                                top10.publish(toSendTextMessage);
+                            }
+                            catch(JMSException e) {
+                                e.printStackTrace();
+                            }
                         }
                     }
                     else {
-                        String[] tokens = msg.getText().split(",");
+                        String[] tokens= null;
+                        try{
+                            tokens = msg.getText().split(",");
+                        }
+                        catch (JMSException e) {
+                            e.printStackTrace();
+                        }
                         String winner = tokens[0];
                         String other = tokens[1];
                         synchronized(players) {
@@ -131,7 +142,7 @@ class PublicZone {
                             if (modified2) {
                                 players.remove(toModify2);
                                 toModify2.setPoints(toModify1.getPoints()+1);
-                                players.add(toModify1);
+                                players.add(toModify2);
                             }
                             else {
                                 players.add(toModify2);
@@ -158,7 +169,7 @@ class PublicZone {
         Thread t = new Thread(new Runnable(){
             public void run() {
                 while (true) {
-                    TextMessage msg;
+                    TextMessage msg = null;
                     try {
                         msg = (TextMessage) publication.receive(10000);
                     }
@@ -167,11 +178,44 @@ class PublicZone {
                     }
                     if (msg  == null) {
                         // I do the publication
-
-                        update.publish(announcements);
+                        String toString = serialize(announcements);
+                        try {
+                            msg = ts.createTextMessage();
+                            msg.setText(toString);
+                            update.publish(msg);
+                        }
+                        catch (JMSException e) {
+                            e.printStackTrace();
+                        }
                     }
                     else {
-
+                        String[] tokens= null;
+                        try{
+                            tokens = msg.getText().split(",");
+                        }
+                        catch (JMSException e) {
+                            e.printStackTrace();
+                        }
+                        String owner = tokens[0];
+                        String nameChannel = tokens[1];
+                        boolean found = false;
+                        for (Announcement el :  announcements) {
+                            if (el.getOwner().compareTo(owner) == 0 && el.getNameChannel().compareTo(nameChannel) == 0) {
+                                found = true;
+                            }
+                        }
+                        if (!found) {
+                            announcements.add(new Announcement(owner, nameChannel));
+                        }
+                        String toString = serialize(announcements);
+                        try {
+                            msg = ts.createTextMessage();
+                            msg.setText(toString);
+                            update.publish(msg);
+                        }
+                        catch (JMSException e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
             }
@@ -220,11 +264,21 @@ class PublicZone {
         StringBuffer buf = new StringBuffer();
         boolean first = true;
         for (Announcement el : a) {
-            if (first) {
-                buf.append(el.getOwner()+","+el.getNameChannel());
+            if (el != null) {
+                if (first) {
+                    buf.append(el.getOwner()+","+el.getNameChannel());
+                }
+                else {
+                    buf.append(";"+el.getOwner()+","+el.getNameChannel());
+                }
             }
             else {
-                buf.append(";"+el.getOwner()+","+el.getNameChannel());
+                if (first) {
+                    buf.append("NULL,NULL");
+                }
+                else {
+                    buf.append(";NULL,NULL");
+                }
             }
         }
         return buf.toString();
