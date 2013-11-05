@@ -32,13 +32,34 @@ class PublicZone {
         javax.jms.QueueConnectionFactory qcf = QueueTcpConnectionFactory.create("localhost", 16010);
         javax.jms.TopicConnectionFactory tcf = TopicTcpConnectionFactory.create("localhost", 16010);
         javax.naming.Context jndiCtx = new javax.naming.InitialContext();
-        jndiCtx.bind("cf", cf);
-        jndiCtx.bind("qcf", qcf);
-        jndiCtx.bind("tcf", tcf);
+        AdminModule.disconnect();
+        try{
+            jndiCtx.bind("cf", cf);
+        }
+        catch(javax.naming.NameAlreadyBoundException e) {
+            System.out.println("cf element already bound");
+        }
+        try {
+            jndiCtx.bind("qcf", qcf);
+        }
+        catch(javax.naming.NameAlreadyBoundException e) {
+            System.out.println("qcf element already bound");
+        }
+        try {
+            jndiCtx.bind("tcf", tcf);
+        }
+        catch(javax.naming.NameAlreadyBoundException e) {
+            System.out.println("tcf element already bound");
+        }
         jndiCtx.close();
         AdminModule.disconnect();
         //Adding the queue to receive the publication from user
-        addQueue("Publication");
+        try{
+            addQueue("Publication");
+        }
+        catch(javax.naming.NameAlreadyBoundException e) {
+            System.out.println("Publication queue already present");
+        }
         Context ictx = new InitialContext();
         Queue queue = (Queue) ictx.lookup("Publication");
         QueueConnection qc = qcf.createQueueConnection();
@@ -46,18 +67,34 @@ class PublicZone {
         publication = qs.createReceiver(queue);
         runPublicationThread();
         //Adding the queue to receive the winner from a match
-        addQueue("Winner");
+        try {
+            addQueue("Winner");
+        }
+        catch(javax.naming.NameAlreadyBoundException e) {
+            System.out.println("Winner queue already present");
+        }
         Queue win = (Queue) ictx.lookup("Winner");
-        winner = qs.createReceiver(win);
+        QueueSession winnerSession = qc.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
+        winner = winnerSession.createReceiver(win);
         //Registration of the topic update
-        addTopic("Update");
+        try {
+            addTopic("Update");
+        }
+        catch (javax.naming.NameAlreadyBoundException e) {
+            System.out.println("Update topic already present");
+        }
         Topic topic = (Topic) ictx.lookup("Update");
         TopicConnection tc = tcf.createTopicConnection();
         ts = tc.createTopicSession(true, Session.AUTO_ACKNOWLEDGE);
         update = ts.createPublisher(topic);
         runUpdateToAllThread();
         //Registration of the topic top10
-        addTopic("top10");
+        try {
+            addTopic("Top10");
+        }
+        catch (javax.naming.NameAlreadyBoundException e) {
+            System.out.println("Top10 topic already present");
+        }
         Topic top = (Topic) ictx.lookup("Top10");
         top10 = ts.createPublisher(top);
         ictx.close();
@@ -71,11 +108,14 @@ class PublicZone {
                 TextMessage msg = null;
                 while(true) {
                     try {
-                        msg = (TextMessage) winner.receive(10000);
+                        synchronized(winner) {
+                        msg = (TextMessage)  winner.receive(10000);
+                        }
                     }
                     catch (JMSException e) {
                         e.printStackTrace();
                     }
+
                     if (msg == null) {
                         //print 10 element
                         synchronized(players) {
@@ -228,7 +268,12 @@ class PublicZone {
     }
     // This method allows to create a queue inside the broker
     public void addQueue (String queueName) throws Exception{
-        AdminModule.connect("root", "root", 60);
+        try {
+            AdminModule.connect("root", "root", 60);
+        }
+        catch (java.net.ConnectException e) {
+            System.out.println("Already connect to AdminModule");
+        }
         Queue queue = Queue.create(queueName);
         User.create("anonymous", "anonymous");
         queue.setFreeReading();
@@ -240,7 +285,12 @@ class PublicZone {
     }
     // This method allows to create a topic inside the broker
     public void addTopic (String topicName) throws Exception {
-        AdminModule.connect("root", "root", 60);
+        try {
+            AdminModule.connect("root", "root", 60);
+        }
+        catch(java.net.ConnectException e) {
+            System.out.println("Already connect to AdminModule");
+        }
         Topic topic = Topic.create(topicName);
         User.create("anonymous", "anonymous");
         topic.setFreeReading();
@@ -255,12 +305,22 @@ class PublicZone {
             StringBuffer buf =  new StringBuffer();
             boolean first = true;
             for (Player el : p) {
-                if (first) {
-                    buf.append(el.getName()+","+el.getPoints());
-                    first = false;
+                if (el != null && el.getName() != null && el.getPoints()!=null){
+                    if (first) {
+                        buf.append(el.getName()+","+el.getPoints());
+                        first = false;
+                    }
+                    else {
+                        buf.append(";"+el.getName()+","+el.getPoints());
+                    }
                 }
                 else {
-                    buf.append(";"+el.getName()+","+el.getPoints());
+                    if (first) {
+                        buf.append("NULL,NULL");
+                    }
+                    else {
+                        buf.append(";NULL,NULL");
+                    }
                 }
             }
             return buf.toString();
@@ -294,5 +354,12 @@ class PublicZone {
             return buf.toString();
         }
     }
-
+    public static void main(String[] args) {
+        try {
+            PublicZone my_public =  new PublicZone();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }
