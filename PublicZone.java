@@ -17,6 +17,7 @@ import javax.jms.JMSException;
 
 class PublicZone {
     private TopicSession ts;
+    private QueueConnection qc;
     private QueueReceiver publication;
     private QueueReceiver winner;
     private TopicPublisher update;
@@ -62,7 +63,7 @@ class PublicZone {
         }
         Context ictx = new InitialContext();
         Queue queue = (Queue) ictx.lookup("Publication");
-        QueueConnection qc = qcf.createQueueConnection();
+        qc = qcf.createQueueConnection();
         QueueSession qs = qc.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
         publication = qs.createReceiver(queue);
         runPublicationThread();
@@ -98,6 +99,7 @@ class PublicZone {
         Topic top = (Topic) ictx.lookup("Top10");
         top10 = ts.createPublisher(top);
         ictx.close();
+        qc.start();
         runTop10Thread();
     }
 
@@ -115,7 +117,6 @@ class PublicZone {
                     catch (JMSException e) {
                         e.printStackTrace();
                     }
-
                     if (msg == null) {
                         //print 10 element
                         synchronized(players) {
@@ -130,10 +131,12 @@ class PublicZone {
                                 }
                             }
                             String toSendS = serialize(toSend);
+                            System.out.println(toSendS);
                             try {
                                 TextMessage toSendTextMessage = ts.createTextMessage();
                                 toSendTextMessage.setText(toSendS);
                                 top10.publish(toSendTextMessage);
+                                ts.commit();
                             }
                             catch(JMSException e) {
                                 e.printStackTrace();
@@ -205,6 +208,7 @@ class PublicZone {
                             TextMessage msg = ts.createTextMessage();
                             msg.setText(toString);
                             update.publish(msg);
+                            ts.commit();
                         }
                         catch(JMSException e) {
                             e.printStackTrace();
@@ -242,6 +246,14 @@ class PublicZone {
                         }
                         String owner = tokens[0];
                         String nameChannel = tokens[1];
+                        if (nameChannel.compareTo("-1") == 0) {
+                            for (int i =0; i<announcements.size(); i++) {
+                                if (announcements.get(i).getOwner().compareTo(owner) == 0) {
+                                    announcements.remove(announcements.get(i));
+                                }
+                            }
+                            return;
+                        }
                         boolean found = false;
                         for (Announcement el :  announcements) {
                             if (el.getOwner().compareTo(owner) == 0 && el.getNameChannel().compareTo(nameChannel) == 0) {
@@ -256,6 +268,7 @@ class PublicZone {
                             msg = ts.createTextMessage();
                             msg.setText(toString);
                             update.publish(msg);
+                            ts.commit();
                         }
                         catch (JMSException e) {
                             e.printStackTrace();
@@ -317,6 +330,7 @@ class PublicZone {
                 else {
                     if (first) {
                         buf.append("NULL,NULL");
+                        first = false;
                     }
                     else {
                         buf.append(";NULL,NULL");
@@ -334,6 +348,7 @@ class PublicZone {
                 if (el != null) {
                     if (first) {
                         buf.append(el.getOwner()+","+el.getNameChannel());
+                        first = false;
                     }
                     else {
                         buf.append(";"+el.getOwner()+","+el.getNameChannel());
@@ -342,6 +357,7 @@ class PublicZone {
                 else {
                     if (first) {
                         buf.append("NULL,NULL");
+                        first = false;
                     }
                     else {
                         buf.append(";NULL,NULL");
