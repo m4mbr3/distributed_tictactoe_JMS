@@ -131,7 +131,6 @@ class PublicZone {
                                 }
                             }
                             String toSendS = serialize(toSend);
-                            System.out.println(toSendS);
                             try {
                                 TextMessage toSendTextMessage = ts.createTextMessage();
                                 toSendTextMessage.setText(toSendS);
@@ -251,6 +250,16 @@ class PublicZone {
                                 if (announcements.get(i).getOwner().compareTo(owner) == 0) {
                                     announcements.remove(announcements.get(i));
                                 }
+                            }
+                            String toString = serialize(announcements);
+                            try {
+                                msg = ts.createTextMessage();
+                                msg.setText(toString);
+                                update.publish(msg);
+                                ts.commit();
+                            }
+                            catch (JMSException e) {
+                                e.printStackTrace();
                             }
                             return;
                         }
