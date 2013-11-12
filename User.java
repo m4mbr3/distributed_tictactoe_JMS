@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Random;
 import java.lang.Integer;
+import java.lang.Character;
 import javax.jms.*;
 import javax.naming.*;
 import org.objectweb.joram.client.jms.tcp.TcpConnectionFactory;
@@ -20,6 +21,7 @@ class User {
     private TopicConnection tc;
     private QueueConnection qc;
     private QueueSender publicator;
+    private QueueSender winner;
 
     User () {
         top10 = Collections.synchronizedList(new ArrayList<Player>());
@@ -48,6 +50,8 @@ class User {
         System.out.println ("");
     }
 
+
+
     public void runOffersList(){
         try {
             //Creation session and factory object
@@ -58,6 +62,8 @@ class User {
             Topic topic = (Topic) ictx.lookup("Top10");
             Topic topic2 = (Topic) ictx.lookup("Update");
             Queue publicationQueue = (Queue) ictx.lookup("Publication");
+            Queue winnerQueue = (Queue) ictx.lookup("Winner");
+
             //Creation of the connections
             qc = qcf.createQueueConnection();
             tc = tcf.createTopicConnection();
@@ -68,6 +74,7 @@ class User {
             TopicSubscriber tsub = ts.createSubscriber(topic);
             TopicSubscriber tsub2 = ts.createSubscriber(topic2);
             publicator = qs.createSender(publicationQueue);
+            winner = qs.createSender(winnerQueue);
             tsub.setMessageListener(new MsgListenerTop10(top10));
             tsub2.setMessageListener(new MsgListenerUpdate(announcements));
             tc.start();
@@ -79,31 +86,207 @@ class User {
             e.printStackTrace();
         }
     }
-    public void game (QueueReceiver temprec) {
+
+
+
+    public void game (QueueReceiver temprec, QueueSender tempsend, QueueSession qs, String username,String enemy) {
         TextMessage msg = null;
+        char sign = ' ';
+        boolean isMyTurn = false;
+        char[][] board = new char[3][3];
+        for (int i=0; i<3; i++)
+            for (int j=0; j<3; j++)
+                board[i][j] = ' ';
+        //decisione segno
+        Random generator =  new Random();
+        if (generator.nextInt()%2 == 0) {
+            sign = 'X';
+        }
+        else {
+            sign = 'O';
+        }
         try {
-            msg = (TextMessage) temprec.receive();
+            TextMessage signToSend = qs.createTextMessage();
+            signToSend.setText(java.lang.Character.toString(sign));
+            tempsend.send(signToSend);
+            String move;
+            if (sign == 'X') isMyTurn = true;
+            else isMyTurn = false;
+            int result;
+            do {
+                if (isMyTurn) {
+                    do {
+                        printBoard(board);
+                        move = System.console().readLine("Insert your move: ");
+                    }while(!apply(board, move, sign));
+                    TextMessage lst = qs.createTextMessage();
+                    lst.setText(move);
+                    tempsend.send(lst);
+                }
+                else {
+                    boolean redo=false;;
+                    do {
+                        msg = (TextMessage) temprec.receive();
+                        String[] tokens=msg.getText().split(",");
+                        String name = tokens[0];
+                        String info = tokens[1];
+                        move = msg.getText();
+                        if (username.compareTo(enemy) == 0) {
+                            apply(board, move, sign);
+                            redo = false;
+                        }
+                        else {
+                            try {
+                                Queue answer = (Queue) ictx.lookup(info);
+                                QueueSender saybusy = qs.createSender(answer);
+                                TextMessage ans = qs.createTextMessage();
+                                ans.setText("BUSY");
+                                saybusy.send(ans);
+                                redo = true;
+                            }
+                            catch (javax.naming.NamingException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }while(redo);
+                }
+                isMyTurn = !isMyTurn;
+                String res = winner(board, sign);
+                result = 0;
+                if (res.compareTo("WIN") == 0) {
+                    result = 2;
+                    TextMessage win = qs.createTextMessage();
+                    win.setText(username+","+enemy);
+                    winner.send(win);
+
+                    System.out.println("You are the winner congratulation!");
+                }
+                else if (res.compareTo("LOS") == 0) {
+                    result = 1;
+                    System.out.println("You are the loser!");
+                }
+                else if (res.compareTo("PAR") == 0){
+                    result = 3;
+                    System.out.println("The match is ended without a winner");
+                }
+                else{
+                    result = 0;
+                }
+            }while (result == 0);
+
         }
         catch (JMSException e) {
             e.printStackTrace();
         }
+    }
 
+
+    boolean apply(char[][] board, String move, char sign) {
+        try {
+            int row = Integer.parseInt(Character.toString(move.charAt(0)));
+            int col = Integer.parseInt(Character.toString(move.charAt(1)));
+            if (board[row][col] == ' ') {
+                board[row][col] = sign;
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+        catch(NumberFormatException e) {
+            return false;
+        }
+    }
+
+
+
+    void printBoard(char[][] board) {
+        System.out.println("   1 2 3 ");
+        for (int i=0; i<3; i++) {
+            for (int j=0; j<3; j++){
+                if (j != 0)
+                    System.out.print(board[i][j]+" ");
+                else
+                    System.out.print(i+") "+board[i][j]+" ");
+            }
+            System.out.println("");
+        }
+    }
+
+    String winner(char[][] board, char sign) {
+        for (int i=0; i<3; i++) {
+            if (board[i][0] == sign && board[i][1] == sign && board[i][2] == sign) return "WIN";
+        }
+        for (int i=0; i<3; i++) {
+            if (board[0][i] == sign && board[1][i] == sign && board[2][i] == sign) return "WIN";
+        }
+        if (board[0][0] == sign && board[1][1] == sign && board[2][2] == sign) return "WIN";
+        if (board[0][2] == sign && board[1][1] == sign && board[2][0] == sign) return "WIN";
+        String res;
+        if (sign == 'X')
+            res = winner(board, 'O');
+        else
+            res = winner(board, 'X');
+        if (res.compareTo("WIN")==0) return "LOS";
+        for (int i=0;i<3;i++) {
+            for (int j=0;j<3;j++) {
+                if (board[i][j] != ' ') return " ";
+            }
+        }
+        return "PAR";
     }
     public void publish_match(String username) {
         Random m = new Random();
         Integer n = new Integer(m.nextInt()%10000);
         String toCreate = new String(username+n.toString());
+        QueueSession qs = null;
+        QueueSender tempsend = null;
         //Creation of the temporary queue to accept connection.
         try {
             addQueue(toCreate);
             Queue queue = (Queue) ictx.lookup(toCreate);
-            QueueSession qs = qc.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
+            qs = qc.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
             QueueReceiver temprec = qs.createReceiver(queue);
             //Creation and send to the public zone of the banner
             TextMessage msg = qs.createTextMessage();
             msg.setText(username+","+toCreate);
             publicator.send(msg);
-            game(temprec);
+            boolean first_message = false;
+            do {
+                msg = (TextMessage)temprec.receive(10000);
+                if (msg != null) {
+                    first_message = true;
+                }
+                else {
+                    Console con =  System.console();
+                    String choice = con.readLine("10 sec are passed, do you want republish the match [y/n] ?");
+                    if (choice.compareTo("y") == 0) {
+                        msg.setText(username+","+toCreate);
+                        publicator.send(msg);
+                    }
+                    else {
+                        msg.setText(username+",-1");
+                        publicator.send(msg);
+                        return;
+                    }
+                }
+            }while (!first_message);
+            TextMessage msg2 = msg;
+            msg.setText(username+",-1");
+            publicator.send(msg);
+            Queue queueS = null;
+            String enemy = null;
+            try {
+                String[] tokens = msg2.getText().split(",");
+                enemy = tokens[0];
+                String nameChannel = tokens[1];
+                queueS = (Queue) ictx.lookup(nameChannel);
+                tempsend = qs.createSender(queue);
+            }
+            catch (JMSException e) {
+                e.printStackTrace();
+            }
+            game(temprec, tempsend, qs, username, enemy);
         }
         catch (javax.naming.NamingException e) {
             e.printStackTrace();
