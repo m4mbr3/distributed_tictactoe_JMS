@@ -27,3 +27,20 @@ How Install it?
 wherever you want on the filesystem (to decide the name of the filder add at the end of the command above your preference).
 6. Open the Makefile and change the classpath of the command to point to the exact ship/bundle/joram-client-jms.jar file inside the home of joram.
 7. Now run it using the command `make` inside the main folder cloned from the repository.
+
+How run it?
+----------------------------
+### Run the single\_server.sh
+
+To run the broker just run into a shell
+    `single_server.sh`
+
+### Run the PublicZone
+
+Go under the folder build and run the following command
+    `java -cp /path/to/your/joram/version/ship/bundle/joram-client-jms.jar:../lib/*:. PublicZone`
+
+### Run a User
+
+Always inside the `build` folder run the command
+    `java -cp /path/to/your/joram/version/ship/bundle/joram-client-jms.jar:../lib/*:. User`
