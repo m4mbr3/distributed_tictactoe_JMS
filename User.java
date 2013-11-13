@@ -193,6 +193,7 @@ class User {
         try {
             int row = Integer.parseInt(Character.toString(move.charAt(0)));
             int col = Integer.parseInt(Character.toString(move.charAt(1)));
+            if (row < 0 || row > 2 || col < 0 || col >2) return false;
             if (board[row][col] == ' ') {
                 board[row][col] = sign;
                 return true;
@@ -211,17 +212,20 @@ class User {
     void printBoard(char[][] board) {
         System.out.print("\033[H\033[2J");
         System.out.flush();
-
+        System.out.println("*****BOARD******");
         System.out.println("   0 1 2 ");
+        System.out.println("   - - - ");
         for (int i=0; i<3; i++) {
             for (int j=0; j<3; j++){
                 if (j != 0)
                     System.out.print(board[i][j]+" ");
                 else
-                    System.out.print(i+") "+board[i][j]+" ");
+                    System.out.print(i+"| "+board[i][j]+" ");
             }
             System.out.println("");
         }
+        System.out.println("****************");
+        System.out.println("");
     }
 
     String winner(char[][] board, char sign, int round) {
@@ -256,10 +260,13 @@ class User {
                 for (int j=0; j<3; j++)
                     board[i][j] = ' ';
             String move;
+            System.out.println("Press just enter to go back to the main menu");
             Announcement a = null;
             do{
                 try {
-                     int choice = Integer.parseInt(System.console().readLine("Insert your choice: "));
+                    String line = System.console().readLine("Insert your choice: ");
+                    if (line.compareTo("") == 0) return ;
+                     int choice = Integer.parseInt(line);
                     a = (Announcement) announcements.get(choice);
                     valid = false;
                 }
@@ -541,7 +548,7 @@ class User {
                 menu();
             }
             else if (c.compareTo("exit") != 0) {
-                System.out.println("dropboxlike: "+ c + ": command not found");
+                System.out.println("tictactoe: "+ c + ": command not found");
             }
         }
         u.stop();

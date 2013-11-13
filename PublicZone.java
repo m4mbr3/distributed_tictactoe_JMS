@@ -133,8 +133,10 @@ class PublicZone {
                             String toSendS = serialize(toSend);
                             try {
                                 TextMessage toSendTextMessage = ts.createTextMessage();
+                                System.out.println(toSendS);
                                 toSendTextMessage.setText(toSendS);
                                 top10.publish(toSendTextMessage);
+                                System.out.println("Sending the top10 class");
                                 ts.commit();
                             }
                             catch(JMSException e) {
@@ -230,7 +232,9 @@ class PublicZone {
                 while (true) {
                     TextMessage msg = null;
                     try {
+                        System.out.println("WAIT FOR MSG");
                         msg = (TextMessage) publication.receive();
+                        System.out.println("RECEIVED MSG");
                     }
                     catch (JMSException e) {
                         e.printStackTrace();
@@ -246,9 +250,11 @@ class PublicZone {
                         String owner = tokens[0];
                         String nameChannel = tokens[1];
                         if (nameChannel.compareTo("-1") == 0) {
+                            System.out.println("REMOVE MESSAGE FOUND");
                             for (int i =0; i<announcements.size(); i++) {
                                 if (announcements.get(i).getOwner().compareTo(owner) == 0) {
                                     announcements.remove(announcements.get(i));
+                                    System.out.println("REMOVING ELEMENT");
                                 }
                             }
                             String toString = serialize(announcements);
@@ -261,26 +267,31 @@ class PublicZone {
                             catch (JMSException e) {
                                 e.printStackTrace();
                             }
-                            return;
                         }
-                        boolean found = false;
-                        for (Announcement el :  announcements) {
-                            if (el.getOwner().compareTo(owner) == 0 && el.getNameChannel().compareTo(nameChannel) == 0) {
-                                found = true;
+                        else {
+                            boolean found = false;
+                            System.out.println("CHECKING OLD MESSAGE");
+                            for (Announcement el :  announcements) {
+                                if (el.getOwner().compareTo(owner) == 0 && el.getNameChannel().compareTo(nameChannel) == 0) {
+                                    found = true;
+                                }
                             }
-                        }
-                        if (!found) {
-                            announcements.add(new Announcement(owner, nameChannel));
-                        }
-                        String toString = serialize(announcements);
-                        try {
-                            msg = ts.createTextMessage();
-                            msg.setText(toString);
-                            update.publish(msg);
-                            ts.commit();
-                        }
-                        catch (JMSException e) {
-                            e.printStackTrace();
+                            if (!found) {
+                                announcements.add(new Announcement(owner, nameChannel));
+                                System.out.println("ADDING NEW MESSAGE");
+                            }
+                            String toString = serialize(announcements);
+                            try {
+                                msg = ts.createTextMessage();
+                                System.out.println(toString);
+                                msg.setText(toString);
+                                System.out.println("Running ANNOUNCEMENTS update");
+                                update.publish(msg);
+                                ts.commit();
+                            }
+                            catch (JMSException e) {
+                                e.printStackTrace();
+                            }
                         }
                     }
                 }
