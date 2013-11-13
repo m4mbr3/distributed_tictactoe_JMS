@@ -112,7 +112,6 @@ class User {
         try {
             TextMessage signToSend = qs.createTextMessage();
             signToSend.setText(java.lang.Character.toString(sign_enemy));
-            System.out.println("Sending the sign to the player2 "+sign_enemy+", your is "+sign);
             tempsend.send(signToSend);
             String move;
             if (sign == 'X') isMyTurn = true;
@@ -131,9 +130,9 @@ class User {
                 else {
                     boolean redo=false;;
                     do {
-                        System.out.println("Receiving temprec");
+                        printBoard(board);
+                        System.out.println("Waiting for "+enemy+"'s move...");
                         msg = (TextMessage) temprec.receive();
-                        System.out.println(msg.getText());
                         String[] tokens=msg.getText().split(",");
                         String name = tokens[0];
                         String info = tokens[1];
@@ -210,6 +209,9 @@ class User {
 
 
     void printBoard(char[][] board) {
+        System.out.print("\033[H\033[2J");
+        System.out.flush();
+
         System.out.println("   0 1 2 ");
         for (int i=0; i<3; i++) {
             for (int j=0; j<3; j++){
@@ -241,7 +243,7 @@ class User {
         if (res.compareTo("WIN")==0) return "LOS";
         for (int i=0;i<3;i++) {
             for (int j=0;j<3;j++) {
-                if (board[i][j] != ' ') return " ";
+                if (board[i][j] == ' ') return " ";
             }
         }
         return "PAR";
@@ -278,7 +280,6 @@ class User {
                 Random m = new Random();
                 Integer n = new Integer(m.nextInt(10000));
                 String mychan = new String(username+n.toString());
-                System.out.println("nome canale "+mychan);
                 try {
                     addQueue(mychan);
                 }
@@ -290,10 +291,8 @@ class User {
                 first.setText(username+","+mychan);
                 System.out.println("Sending the first message "+username+","+mychan);
                 organizer.send(first);
-                System.out.println("Sended");
                 mychannel = qs.createReceiver(mych);
                 TextMessage msg = qs.createTextMessage();
-                System.out.println("Receiving sign");
                 qc.start();
                 msg = (TextMessage) mychannel.receive();
                 sign = msg.getText().charAt(0);
@@ -319,7 +318,8 @@ class User {
                         organizer.send(lst);
                     }
                     else {
-                        System.out.println("Receiving move");
+                        printBoard(board);
+                        System.out.println("Waiting for "+a.getOwner()+"'s move...");
                         msg = (TextMessage) mychannel.receive();
                         String[] tokens=msg.getText().split(",");
                         String name = tokens[0];
@@ -377,10 +377,10 @@ class User {
             //Creation and send to the public zone of the banner
             TextMessage msg = qs.createTextMessage();
             msg.setText(username+","+toCreate);
-            System.out.println("Sending "+username+","+toCreate);
             publicator.send(msg);
             boolean first_message = false;
             do {
+                System.out.println("Waiting for a rival...");
                 msg = (TextMessage)temprec.receive(40000);
                 if (msg != null) {
                     first_message = true;
@@ -391,13 +391,11 @@ class User {
                     if (choice.compareTo("y") == 0) {
                         msg = qs.createTextMessage();
                         msg.setText(username+","+toCreate);
-                        System.out.println("Sending "+username+","+toCreate);
                         publicator.send(msg);
                     }
                     else {
                         msg = qs.createTextMessage();
                         msg.setText(username+",-1");
-                        System.out.println("Sending "+username+",-1");
                         publicator.send(msg);
                         return;
                     }
@@ -405,7 +403,6 @@ class User {
             }while (!first_message);
             TextMessage msg2 = qs.createTextMessage();
             msg2.setText(username+",-1");
-            System.out.println("Sending clear message");
             publicator.send(msg2);
             Queue queueS = null;
             String enemy = null;
@@ -413,7 +410,6 @@ class User {
                 String[] tokens = msg.getText().split(",");
                 enemy = tokens[0];
                 String nameChannel = tokens[1];
-                System.out.println("Nome Canale avversario "+nameChannel);
                 queueS = (Queue) ictx.lookup(nameChannel);
                 tempsend = qs.createSender(queueS);
             }
