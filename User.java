@@ -296,7 +296,6 @@ class User {
                 mych = (Queue) ictx.lookup(mychan);
                 TextMessage first = qs.createTextMessage();
                 first.setText(username+","+mychan);
-                System.out.println("Sending the first message "+username+","+mychan);
                 organizer.send(first);
                 mychannel = qs.createReceiver(mych);
                 TextMessage msg = qs.createTextMessage();
@@ -339,7 +338,7 @@ class User {
                     if (res.compareTo("WIN") == 0) {
                         result = 2;
                         TextMessage win = qs.createTextMessage();
-                        win.setText(username+","+a.getOwner());
+                        win.setText(username+","+a.getOwner().trim());
                         winner.send(win);
                         System.out.print("\033[H\033[2J");
                         System.out.flush();
@@ -415,7 +414,7 @@ class User {
             String enemy = null;
             try {
                 String[] tokens = msg.getText().split(",");
-                enemy = tokens[0];
+                enemy = tokens[0].trim();
                 String nameChannel = tokens[1];
                 queueS = (Queue) ictx.lookup(nameChannel);
                 tempsend = qs.createSender(queueS);
@@ -423,7 +422,6 @@ class User {
             catch (JMSException e) {
                 e.printStackTrace();
             }
-            System.out.println("Calling game");
             game(temprec, tempsend, qs, username, enemy);
         }
         catch (javax.naming.NamingException e) {
@@ -462,17 +460,22 @@ class User {
             System.out.println("   Username   |   Port");
             int i =0;
             for (Announcement el : announcements) {
-            String name = null;
+                //Announcement copy = new Announcement(el.getOwner(), el.getNameChannel());
+                String copy = new String(el.getOwner());
+                String name = null;
                 try {
                     name = el.getOwner().substring(0,11);
                 }
                 catch (IndexOutOfBoundsException e) {
                     int size =  el.getOwner().length();
                     for(int j=0; j<(11-size); j++ ) {
-                        el.setOwner(el.getOwner()+" ");
+                        copy = copy+" ";
                     }
                 }
-                System.out.println(i+") "+el.getOwner()+"|   "+el.getNameChannel());
+                if (name == null)
+                    System.out.println(i+") "+copy+"|   "+el.getNameChannel());
+                else
+                    System.out.println(i+") "+name+"|   "+el.getNameChannel());
                 i++;
             }
             System.out.println("************************************************");
@@ -501,6 +504,7 @@ class User {
             System.out.println("    Username |   Points");
             int i = 0;
             for (Player el : top10 ) {
+                Player copy = new Player(el.getName(), el.getPoints());
                 i++;
                 String name = null;
                 try {
@@ -509,13 +513,22 @@ class User {
                 catch (IndexOutOfBoundsException e) {
                     int size =  el.getName().length();
                     for(int j=0; j<(9-size); j++ ) {
-                        el.setName(el.getName()+" ");
+                        copy.setName(copy.getName()+" ");
                     }
                 }
-                if (i!=10)
-                    System.out.println(i+" ) "+el.getName()+"|   "+el.getPoints());
-                else
-                    System.out.println(i+") "+el.getName()+"|   "+el.getPoints());
+                if (name == null) {
+                    if (i!=10)
+                        System.out.println(i+" ) "+copy.getName()+"|   "+copy.getPoints());
+                    else
+                        System.out.println(i+") "+copy.getName()+"|   "+copy.getPoints());
+                }
+                else {
+                    if (i!=10)
+                        System.out.println(i+" ) "+name+"|   "+el.getPoints());
+                    else
+                        System.out.println(i+") "+name+"|   "+el.getPoints());
+
+                }
             }
             System.out.println("*********************************************");
         }
@@ -589,7 +602,7 @@ class MsgListenerUpdate implements MessageListener {
                         announcements.add(new Announcement("Empty", "Empty"));
                     }
                     else {
-                        announcements.add(new Announcement(owner, channel));
+                        announcements.add(new Announcement(owner.trim(), channel));
                     }
                 }
             }

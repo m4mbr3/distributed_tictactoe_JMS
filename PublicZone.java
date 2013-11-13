@@ -133,10 +133,8 @@ class PublicZone {
                             String toSendS = serialize(toSend);
                             try {
                                 TextMessage toSendTextMessage = ts.createTextMessage();
-                                System.out.println(toSendS);
                                 toSendTextMessage.setText(toSendS);
                                 top10.publish(toSendTextMessage);
-                                System.out.println("Sending the top10 class");
                                 ts.commit();
                             }
                             catch(JMSException e) {
@@ -155,41 +153,23 @@ class PublicZone {
                         String winner = tokens[0];
                         String other = tokens[1];
                         synchronized(players) {
-                            Player toModify1 = null;
-                            Player toModify2 = null;
                             boolean modified1 = false;
                             boolean modified2 = false;
-                            for (Player el : players) {
-                                if (el.getName().compareTo(winner) == 0) {
-                                    toModify1 = el;
-                                    modified1 = true;
+                            for (int i=0; i<players.size(); i++) {
+                                if (players.get(i).getName().compareTo(winner) == 0) {
+                                    players.get(i).setPoints(players.get(i).getPoints()+1);
+                                    modified1= true;
                                 }
-                                else if (el.getName().compareTo(other) == 0) {
-                                    toModify2 = el;
-                                    modified2 = true;
+                                if (players.get(i).getName().compareTo(other) == 0) {
+                                    players.get(i).setPoints(players.get(i).getPoints()-1);
+                                    modified2= true;
                                 }
                             }
-                            if (toModify1 == null) {
-                                toModify1 = new Player(winner, new Integer(1));
+                            if (!modified1) {
+                                players.add(new Player(winner, new Integer(1)));
                             }
-                            if (toModify2 == null) {
-                                toModify2 = new Player(other, new Integer(-1));
-                            }
-                            if (modified1) {
-                                players.remove(toModify1);
-                                toModify1.setPoints(toModify1.getPoints()+1);
-                                players.add(toModify1);
-                            }
-                            else {
-                                players.add(toModify1);
-                            }
-                            if (modified2) {
-                                players.remove(toModify2);
-                                toModify2.setPoints(toModify1.getPoints()+1);
-                                players.add(toModify2);
-                            }
-                            else {
-                                players.add(toModify2);
+                            if (!modified2) {
+                                players.add(new Player(other, new Integer(-1)));
                             }
                             Collections.sort(players, new CustomComparator());
                         }
@@ -232,9 +212,7 @@ class PublicZone {
                 while (true) {
                     TextMessage msg = null;
                     try {
-                        System.out.println("WAIT FOR MSG");
                         msg = (TextMessage) publication.receive();
-                        System.out.println("RECEIVED MSG");
                     }
                     catch (JMSException e) {
                         e.printStackTrace();
@@ -250,11 +228,9 @@ class PublicZone {
                         String owner = tokens[0];
                         String nameChannel = tokens[1];
                         if (nameChannel.compareTo("-1") == 0) {
-                            System.out.println("REMOVE MESSAGE FOUND");
                             for (int i =0; i<announcements.size(); i++) {
                                 if (announcements.get(i).getOwner().compareTo(owner) == 0) {
                                     announcements.remove(announcements.get(i));
-                                    System.out.println("REMOVING ELEMENT");
                                 }
                             }
                             String toString = serialize(announcements);
@@ -270,7 +246,6 @@ class PublicZone {
                         }
                         else {
                             boolean found = false;
-                            System.out.println("CHECKING OLD MESSAGE");
                             for (Announcement el :  announcements) {
                                 if (el.getOwner().compareTo(owner) == 0 && el.getNameChannel().compareTo(nameChannel) == 0) {
                                     found = true;
@@ -278,14 +253,11 @@ class PublicZone {
                             }
                             if (!found) {
                                 announcements.add(new Announcement(owner, nameChannel));
-                                System.out.println("ADDING NEW MESSAGE");
                             }
                             String toString = serialize(announcements);
                             try {
                                 msg = ts.createTextMessage();
-                                System.out.println(toString);
                                 msg.setText(toString);
-                                System.out.println("Running ANNOUNCEMENTS update");
                                 update.publish(msg);
                                 ts.commit();
                             }
