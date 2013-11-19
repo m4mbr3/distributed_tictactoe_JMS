@@ -24,14 +24,14 @@ class PublicZone {
     private TopicPublisher top10;
     private  List<Player> players;
     private  List<Announcement> announcements;
-    public PublicZone() throws Exception {
+    public PublicZone(String server) throws Exception {
         players = Collections.synchronizedList(new ArrayList<Player>());
         announcements = Collections.synchronizedList(new ArrayList<Announcement>());
         //At boot the admin object is created
         AdminModule.connect("root", "root", 60);
-        javax.jms.ConnectionFactory cf = TcpConnectionFactory.create("localhost", 16010);
-        javax.jms.QueueConnectionFactory qcf = QueueTcpConnectionFactory.create("localhost", 16010);
-        javax.jms.TopicConnectionFactory tcf = TopicTcpConnectionFactory.create("localhost", 16010);
+        javax.jms.ConnectionFactory cf = TcpConnectionFactory.create(server, 16010);
+        javax.jms.QueueConnectionFactory qcf = QueueTcpConnectionFactory.create(server, 16010);
+        javax.jms.TopicConnectionFactory tcf = TopicTcpConnectionFactory.create(server, 16010);
         javax.naming.Context jndiCtx = new javax.naming.InitialContext();
         AdminModule.disconnect();
         try{
@@ -364,7 +364,13 @@ class PublicZone {
     }
     public static void main(String[] args) {
         try {
-            PublicZone my_public =  new PublicZone();
+            PublicZone my_public;
+            if (args.length > 1) {
+                my_public = new PublicZone(args[1]);
+            }
+            else{
+                my_public =  new PublicZone("localhost");
+            }
         }
         catch (Exception e) {
             e.printStackTrace();
