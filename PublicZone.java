@@ -24,11 +24,14 @@ class PublicZone {
     private TopicPublisher top10;
     private  List<Player> players;
     private  List<Announcement> announcements;
+    private String servername;
+
     public PublicZone(String server) throws Exception {
         players = Collections.synchronizedList(new ArrayList<Player>());
         announcements = Collections.synchronizedList(new ArrayList<Announcement>());
         //At boot the admin object is created
-        AdminModule.connect("root", "root", 60);
+        servername = server;
+        AdminModule.connect(server, 16010,"root", "root");
         javax.jms.ConnectionFactory cf = TcpConnectionFactory.create(server, 16010);
         javax.jms.QueueConnectionFactory qcf = QueueTcpConnectionFactory.create(server, 16010);
         javax.jms.TopicConnectionFactory tcf = TopicTcpConnectionFactory.create(server, 16010);
@@ -274,7 +277,7 @@ class PublicZone {
     // This method allows to create a queue inside the broker
     public void addQueue (String queueName) throws Exception{
         try {
-            AdminModule.connect("root", "root", 60);
+            AdminModule.connect(servername, 16010, "root", "root");
         }
         catch (java.net.ConnectException e) {
             System.out.println("Already connect to AdminModule");
@@ -291,7 +294,7 @@ class PublicZone {
     // This method allows to create a topic inside the broker
     public void addTopic (String topicName) throws Exception {
         try {
-            AdminModule.connect("root", "root", 60);
+            AdminModule.connect(servername, 16010,"root", "root");
         }
         catch(java.net.ConnectException e) {
             System.out.println("Already connect to AdminModule");
@@ -365,8 +368,8 @@ class PublicZone {
     public static void main(String[] args) {
         try {
             PublicZone my_public;
-            if (args.length > 1) {
-                my_public = new PublicZone(args[1]);
+            if (args.length > 0 ) {
+                my_public = new PublicZone(args[0]);
             }
             else{
                 my_public =  new PublicZone("localhost");

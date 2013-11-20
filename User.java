@@ -22,8 +22,9 @@ class User {
     private QueueConnection qc;
     private QueueSender publicator;
     private QueueSender winner;
-
-    User () {
+    private String servername;
+    User (String servername) {
+        this.servername = servername;
         top10 = Collections.synchronizedList(new ArrayList<Player>());
         announcements = Collections.synchronizedList(new ArrayList<Announcement>());
         qc = null;
@@ -436,7 +437,7 @@ class User {
     }
     public void addQueue (String queueName) throws Exception{
         try {
-            AdminModule.connect("root", "root", 60);
+            AdminModule.connect(servername,16010,"root", "root");
         }
         catch (java.net.ConnectException e) {
             System.out.println("Already connect to AdminModule");
@@ -534,7 +535,13 @@ class User {
         }
     }
     public static void main(String[] args) {
-        User u = new User();
+        User u;
+        if (args.length > 0) {
+            u  = new User(args[0]);
+        }
+        else {
+            u = new User("localhost");
+        }
         Console con = System.console();
         String user_name = con.readLine("Insert your username for this session: ");
         String c="";
